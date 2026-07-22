@@ -8,6 +8,166 @@ enum class Direction { UP, DOWN, IDLE};
 enum class ElevatorStatus {IDLE, MOVING, STOPPED_DOORS_OPEN};
 enum class RequestType {CAB, HALL};
 
+
+//Abstract strategy interface
+class DispatchStrategy {
+    public: 
+        virtual ~DispatchStrategy() = default;
+
+        virtual int calculateCost(const Elevator& elevator, int pickup_floor, Direction req_direction, int total_floors) const = 0;
+
+}
+
+//strategy-1: original direction-aware cost algorithm
+class DirectionAwareCostStrategy : public DispatchStrategy {
+    public:
+        int calculateCost(const Elevator& elevator, int pickup_floor, Direction req_direction, int total_floors) const override {
+            int current = elevator.getCurrentFloor();
+            Direction dir = elevator.getDirection();
+
+            int dist = abs(current - pickup_floor);
+
+            if(dir == Direction::IDLE) return dist + 1;
+
+            if(req_direction == Direction::UP && dir == Direction::UP && pickup_floor >= current){
+                return dist;
+            }
+
+            if(req_direction == Direction::DOWN && dir == Direction::DOWN && pickup_floor <= current){
+                return dist;
+            }
+
+            return 2*total_floors + dist; //penalty for changing direction
+        }
+};
+
+
+
+// Strategy 2: Simple Nearest-Elevator First (great for light traffic or testing)
+class NearestElevatorStrategy : public DispatchStrategy {
+public:
+    int calculateCost(const Elevator& elevator, 
+                      int pickup_floor, 
+                      Direction req_direction, 
+                      int total_floors) const override {
+        return std::abs(elevator.getCurrentFloor() - pickup_floor);
+    }
+};
+
+
+
+
+
+
+
+//elevator controller class
+
+class ElevatorController {
+    private:
+        vector<Elevator> elevators;
+        int num_floors;
+        unique_ptr<DispatchStrategy> strategy;
+
+
+        // //dispatcher scoring logic
+        // int calculateCost(const Elevator& elevator, int pickup_floor, Direction req_direction){
+        //     int current = elevator.getCurrentFloor();
+        //     Direction dir = elevator.getDirection();
+
+        //     int dist = abs(current - pickup_floor);
+
+        //     if(dir == Direction::IDLE) return dist + 1;
+
+        //     if(req_direction == Direction::UP && dir == Direction::UP && pickup_floor >= current){
+        //         return dist;
+        //     }
+
+        //     if(req_direction == Direction::DOWN && dir == Direction::DOWN && pickup_floor <= current){
+        //         return dist;
+        //     }
+
+        //     return 2*num_floors + dist; //penalty for changing direction 
+        // }
+
+
+        void handleHallRequest(int pickup_floor, Direction direction){
+            int best_elevator_id = -1;
+            int min_cost = INT_MAX;
+            
+            for(size_t i = 0; i < elevators.size(); i++){
+                int cost = strategy->calculateCost(elevators[i], pickup_floor, direction);
+                if(cost < min_cost){
+                    min_cost = cost;
+                    best_elevator_id = i;
+                }
+            }
+
+            std::cout << "\n>>> [Controller] Hall Request on Floor " << pickup_floor 
+                  << " (" << (direction == Direction::UP ? "UP" : "DOWN") 
+                  << ") -> Assigned to Elevator " << best_elevator_id 
+                  << " (Cost: " << min_cost << ")\n";
+
+            elevators[best_elevator_id].addHallRequest(pickup_floor, direction);
+
+        }
+
+
+        void handleCabRequest(int elevator_id, int destination_floor) {
+            std::cout << "\n>>> [Controller] Cab Request inside Elevator " << elevator_id 
+                  << " -> Target Floor " << destination_floor << "\n";
+
+            elevators[elevator_id].addCabRequest(destination_floor);
+        }
+
+    public:
+        ElevatorController(int num_elevators, int num_floors) : num_floors(num_floors) {
+            for (int i = 0; i < num_elevators; ++i) {
+                elevators.emplace_back(i, 0);
+            }
+        }
+        
+        void setStrategy(unique_ptr<DispatchStrategy> new_strategy){
+            strategy = move(new_strategy);
+        }
+        // Single unified entry point
+        void handleRequest(const Request& req) {
+            if (req.floor < 0 || req.floor >= num_floors) {
+                std::cout << "[Controller] Invalid floor: " << req.floor << "\n";
+                return;
+            }
+
+            if (req.type == RequestType::HALL) {
+                handleHallRequest(req.floor, req.direction);
+            } else if (req.type == RequestType::CAB) {
+                if (req.elevator_id < 0 || req.elevator_id >= static_cast<int>(elevators.size())) {
+                    std::cout << "[Controller] Invalid elevator ID: " << req.elevator_id << "\n";
+                    return;
+                }
+                handleCabRequest(req.elevator_id, req.floor);
+            }
+        }
+
+        void step() {
+            for (auto& elevator : elevators) {
+                elevator.step();
+            }
+        }
+
+        void printStatus() const {
+            std::cout << "\n\n----------------- SYSTEM STATUS -----------------";
+            for (const auto& e : elevators) {
+                std::cout << "\nElevator " << e.getId() 
+                        << " | Floor: " << e.getCurrentFloor() 
+                        << " | Dir: " << (e.getDirection() == Direction::UP ? "UP" : 
+                                        (e.getDirection() == Direction::DOWN ? "DOWN" : "IDLE"))
+                        << " | Pending Requests: " << (e.hasRequests() ? "Yes" : "No");
+            }
+            std::cout << "\n-------------------------------------------------\n";
+        }
+        
+    
+};
+
 class Elevator {
     private:
         int id;
@@ -53,13 +213,40 @@ class Elevator {
                 return;
             }
 
-            if(pickup_floor > current_floor) {
-                up_queue.push(pickup_floor);
-                if(direction == Direction::IDLE) direction = Direction::UP;
-            } else{
-                down_queue.push(pickup_floor);
-                if(direction == Direction::IDLE) direction = Direction::DOWN;
+            if(direction == Direction::UP) {
+                if(req_direction == Direction:: UP && pickup_floor > current_floor){
+                    up_queue.push(pickup_floor);
+                }else{
+                    down_queue.push(pickup_floor);
+                }
             }
+
+            else if(direction == Direction:: DOWN) {
+                if(req_direction == Direction::DOWN && pickup_floor < current_floor){
+                    down_queue.push(pickup_floor);
+                } else{
+                    up_queue.push(current_floor);
+                }
+            }
+
+            else{//idle
+                if(req_direction == Direction::UP){
+                    up_queue.push(pickup_floor);
+                }else{
+                    down_queue.push(pickup_floor);
+                }
+                direction = (pickup_floor > current_floor)?Direction::UP : Direction::DOWN;
+                status = ElevatorStatus::MOVING;
+            }
+
+
+            // if(pickup_floor > current_floor && req_direction==Direction::UP) {
+            //     up_queue.push(pickup_floor);
+            //     if(direction == Direction::IDLE) direction = Direction::UP;
+            // } else{
+            //     down_queue.push(pickup_floor);
+            //     if(direction == Direction::IDLE) direction = Direction::DOWN;
+            // }
 
             status = ElevatorStatus::MOVING;
         }
@@ -169,109 +356,7 @@ struct Request {
 
 
 
-//elevator controller class
 
-class ElevatorController {
-    private:
-        vector<Elevator> elevators;
-        int num_floors;
-
-
-        //dispatcher scoring logic
-        int calculateCost(const Elevator& elevator, int pickup_floor, Direction req_direction){
-            int current = elevator.getCurrentFloor();
-            Direction dir = elevator.getDirection();
-
-            int dist = abs(current - pickup_floor);
-
-            if(dir == Direction::IDLE) return dist + 1;
-
-            if(req_direction == Direction::UP && dir == Direction::UP && pickup_floor >= current){
-                return dist;
-            }
-
-            if(req_direction == Direction::DOWN && dir == Direction::DOWN && pickup_floor <= current){
-                return dist;
-            }
-
-            return 2*num_floors + dist; //penalty for changing direction 
-        }
-
-
-        void handleHallRequest(int pickup_floor, Direction direction){
-            int best_elevator_id = -1;
-            int min_cost = INT_MAX;
-            
-            for(size_t i = 0; i < elevators.size(); i++){
-                int cost = calculateCost(elevators[i], pickup_floor, direction);
-                if(cost < min_cost){
-                    min_cost = cost;
-                    best_elevator_id = i;
-                }
-            }
-
-            std::cout << "\n>>> [Controller] Hall Request on Floor " << pickup_floor 
-                  << " (" << (direction == Direction::UP ? "UP" : "DOWN") 
-                  << ") -> Assigned to Elevator " << best_elevator_id 
-                  << " (Cost: " << min_cost << ")\n";
-
-            elevators[best_elevator_id].addHallRequest(pickup_floor, direction);
-
-        }
-
-
-        void handleCabRequest(int elevator_id, int destination_floor) {
-            std::cout << "\n>>> [Controller] Cab Request inside Elevator " << elevator_id 
-                  << " -> Target Floor " << destination_floor << "\n";
-
-            elevators[elevator_id].addCabRequest(destination_floor);
-        }
-
-    public:
-        ElevatorController(int num_elevators, int num_floors) : num_floors(num_floors) {
-            for (int i = 0; i < num_elevators; ++i) {
-                elevators.emplace_back(i, 0);
-            }
-        }
-
-        // Single unified entry point
-        void handleRequest(const Request& req) {
-            if (req.floor < 0 || req.floor >= num_floors) {
-                std::cout << "[Controller] Invalid floor: " << req.floor << "\n";
-                return;
-            }
-
-            if (req.type == RequestType::HALL) {
-                handleHallRequest(req.floor, req.direction);
-            } else if (req.type == RequestType::CAB) {
-                if (req.elevator_id < 0 || req.elevator_id >= static_cast<int>(elevators.size())) {
-                    std::cout << "[Controller] Invalid elevator ID: " << req.elevator_id << "\n";
-                    return;
-                }
-                handleCabRequest(req.elevator_id, req.floor);
-            }
-        }
-
-        void step() {
-            for (auto& elevator : elevators) {
-                elevator.step();
-            }
-        }
-
-        void printStatus() const {
-            std::cout << "\n\n----------------- SYSTEM STATUS -----------------";
-            for (const auto& e : elevators) {
-                std::cout << "\nElevator " << e.getId() 
-                        << " | Floor: " << e.getCurrentFloor() 
-                        << " | Dir: " << (e.getDirection() == Direction::UP ? "UP" : 
-                                        (e.getDirection() == Direction::DOWN ? "DOWN" : "IDLE"))
-                        << " | Pending Requests: " << (e.hasRequests() ? "Yes" : "No");
-            }
-            std::cout << "\n-------------------------------------------------\n";
-        }
-        
-    
-};
 
 
 
