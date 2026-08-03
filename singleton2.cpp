@@ -20,7 +20,7 @@ public:
 
 };
 
-Singleton::instance = nullptr;
+Singleton* Singleton::instance = nullptr;
 
 
 int main(){
