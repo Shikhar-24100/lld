@@ -3,6 +3,7 @@
 #include<queue>
 #include<cmath>
 using namespace std;
+#include <unique_ptr>
 
 enum class Direction { UP, DOWN, IDLE};
 enum class ElevatorStatus {IDLE, MOVING, STOPPED_DOORS_OPEN};
