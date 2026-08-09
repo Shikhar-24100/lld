@@ -179,3 +179,131 @@ class StandardTicTacToeRules : public TicTacToeRules {
             return true;
         }
 };
+
+
+
+///game class
+class TicTacToeGame {
+    private:
+        Board* board;
+        deque<TicTacToePlayer*> players;
+        TicTacToeRules* rules;
+        vector<IObserver*> observers;
+        bool gameOver;
+    
+    public:
+        TicTacToeGame(int boardSize) {
+            board = new Board(boardSize);
+            rules = new StandardTicTacToeRules();
+            gameOver = false;
+        }
+
+        void addPlayer(TicTacToePlayer* player) {
+            players.push_back(player);
+        }
+
+        void addObserver(IObserver* observer) {
+            observers.push_back(observer);
+        }
+
+        void notify(string msg) {
+            for(auto observer : observers) {
+                observer->update(msg);
+            }
+        }
+
+        void setRule(TicTacToeRules* rule) {
+            this->rules = rule;
+        }
+
+
+        void play() {
+            if(players.size() < 2) {
+                cout << "Not enough players to start the game." << endl;
+                return;
+            }
+
+            notify("Game started with " + to_string(players.size()) + " players.");
+
+            while(!gameOver) {
+                board->display();
+
+                //take out the current player from deque
+                TicTacToePlayer* currentPlayer = players.front();
+                
+                cout << currentPlayer->getName() << " ("<< currentPlayer->getSymbol()->getMark() << ")'s turn." << endl;
+
+                int row, col;
+                cin >> row >> col;
+
+                //check if move is valid
+                if(rules->isValidMove(board, row, col)) {
+                    board->placeMark(row, col, currentPlayer->getSymbol());
+                    notify(currentPlayer->getName() + " placed " + currentPlayer->getSymbol()->getMark() + " at (" + to_string(row) + ", " + to_string(col) + ").");
+
+                    if(rules->checkWin(board, currentPlayer->getSymbol())) {
+                        board->display();
+                        cout << currentPlayer->getName() << " wins!" << endl;
+                        currentPlayer->incrementScore();
+
+                        notify(currentPlayer->getName() + " wins the game!");
+
+                        gameOver = true;
+                    }
+
+                    else if(rules->checkDraw(board)) {
+                        board->display();
+                        cout << "Game is a draw!" << endl;
+                        notify("Game ended in a draw.");
+                        gameOver = true;
+                    }
+                    else {
+                        players.pop_front();
+                        players.push_back(currentPlayer); //add back to the end of deque
+                    }
+                }
+
+                else{
+                    cout << "Invalid move. Try again." << endl;
+                    notify(currentPlayer->getName() + " attempted an invalid move at (" + to_string(row) + ", " + to_string(col) + ").");
+                }
+            }
+        }
+
+        ~TicTacToeGame() {
+            delete board;
+            delete rules;
+            for(auto player : players) {
+                delete player;
+            }
+        }
+    
+};
+
+
+enum GameType {
+    STANDARD,
+    CUSTOM
+};
+
+class TicTacToeGameFactory {
+    public:
+        static TicTacToeGame* createGame(GameType type, int boardSize) {
+            if(type == GameType::STANDARD) {
+                return new TicTacToeGame(boardSize);
+            } else {
+                // For custom game, we can add more logic here
+                return new TicTacToeGame(boardSize);
+            }
+            return nullptr;
+        }
+};
+
+
+//simple observer implementation
+class ConsoleNotifier : public IObserver {
+    public:
+        void update(string msg) override {
+            cout << "[Notification] " << msg << endl;
+        }
+};
