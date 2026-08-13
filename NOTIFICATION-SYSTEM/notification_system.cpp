@@ -124,5 +124,19 @@ public:
 };
 
 
-
+class NotificationStrategyFactory {
+public:
+    static shared_ptr<INotificationStrategy> getStrategy(NotificationChannelType channel) {
+        switch(channel) {
+            case NotificationChannelType::EMAIL:
+                return make_shared<EmailNotificationStrategy>();
+            case NotificationChannelType::SMS:
+                return make_shared<SMSNotificationStrategy>();
+            case NotificationChannelType::IN_APP:
+                return make_shared<InAppNotificationStrategy>();
+            default:
+                return nullptr;
+        }
+    }
+};
 
