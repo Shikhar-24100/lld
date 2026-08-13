@@ -88,3 +88,41 @@ public:
     }
 };
 
+
+
+
+//strategy interface
+class INotificationStrategy {
+public:
+    virtual ~INotificationStrategy() = default;
+    virtual void sendNotification(const User &recipient, const Message &message) = 0;
+};
+
+class EmailNotificationStrategy: public INotificationStrategy {
+public:
+    void sendNotification(const User& recipient, const Message &message) override {
+        cout<<"[EMAIL] Sent to "<<recipient.getEmail()
+        << " -> Content: \""<<message.getContent() <<"\"\n";    
+    }
+};
+
+class SMSNotificationStrategy: public INotificationStrategy {
+public:
+    void sendNotification(const User& recipient, const Message &message) override {
+        cout<<"[SMS] Sent to "<<recipient.getPhoneNumber()
+        << " -> Content: \""<<message.getContent() <<"\"\n";    
+    }
+};
+
+
+class InAppNotificationStrategy: public INotificationStrategy {
+public:
+    void sendNotification(const User& recipient, const Message &message) override {
+        cout<<"[IN-APP] Pushed to UserID "<<recipient.getId()
+        << " -> Content: \""<<message.getContent() <<"\"\n";    
+    }
+};
+
+
+
+
