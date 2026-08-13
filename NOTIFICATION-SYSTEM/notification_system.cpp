@@ -39,5 +39,32 @@ public:
 };
 
 
+//message entity
+class Message {
+private:
+    string messageId;
+    string senderId;
+    string recipientId; //can be a userId or a groupId
+    string content;
+    MessageType type;
+    long long timestamp;
+public:
+    Message(std::string messageId, std::string senderId, std::string recipientId,
+            std::string content, MessageType type)
+        : messageId(messageId), senderId(senderId), recipientId(recipientId),
+          content(content), type(type) {
+        timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    //getters;
+    std::string getMessageId() const { return messageId; }
+    std::string getSenderId() const { return senderId; }
+    std::string getRecipientId() const { return recipientId; }
+    std::string getContent() const { return content; }
+    MessageType getType() const { return type; }
+    long long getTimestamp() const { return timestamp; 
+};
+
 
 
