@@ -233,3 +233,45 @@ public:
             }
         }
 };
+
+
+
+//subject/observable - message engine
+class ISubject {
+    virtual ~ISubject() = default;
+    virtual void registerObserver(shared_ptr<IObserver> observer) = 0;
+    virtual void removeObserver(shared_ptr<IObserver> observer) = 0;
+    virtual void notifyObservers(const Message& message) = 0;
+};
+
+
+class MessagingEngine: public ISubject {
+    private:
+        vector<shared_ptr<IObserver>> observers;
+    
+    public:
+        void registerObservers(shared_ptr<IObserver> observer){
+            observers.push_back(observer);
+        }
+
+        void removeObserver(std::shared_ptr<IObserver> observer) override {
+            observers.erase(
+                std::remove(observers.begin(), observers.end(), observer),
+                observers.end()
+            );
+        }
+
+        void sendMessage(const Message& message) {
+            std::cout << "\n[MessagingEngine] Message sent by User (" << message.getSenderId() << ")\n";
+            notifyObservers(message);
+        }
+
+        void notifyObservers(const Message& message) override {
+            for(auto& observer: observers) {
+                observer->onMessageSent(message);
+            }
+        }
+};
+
+
+
