@@ -63,8 +63,28 @@ public:
     std::string getRecipientId() const { return recipientId; }
     std::string getContent() const { return content; }
     MessageType getType() const { return type; }
-    long long getTimestamp() const { return timestamp; 
+    long long getTimestamp() const { return timestamp;}
 };
 
 
+
+//group entity
+class Group {
+private:
+    string groupId;
+    string name;
+    vector<string> memberUserIds;
+public:
+    Group(string groupId, string name, vector<string> memberUserIds)
+        : groupId(groupId), name(name), memberUserIds(memberUserIds) {}
+
+    //getters
+    string getGroupId() const {return groupId;}
+    string getName() const {return name;}
+    vector<string> getMemberUserIds() const {return memberUserIds;}
+
+    void addMember(string &userId){
+        memberUserIds.push_back(userId);
+    }
+};
 
