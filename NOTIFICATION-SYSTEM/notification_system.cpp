@@ -194,6 +194,7 @@ public:
     virtual void onMessageSent(const Message& message) = 0;
 };
 
+
 //concrete observer (the notification engine)
 class NotificationEngine: public IObserver {
 private:
@@ -238,6 +239,7 @@ public:
 
 //subject/observable - message engine
 class ISubject {
+    public:
     virtual ~ISubject() = default;
     virtual void registerObserver(shared_ptr<IObserver> observer) = 0;
     virtual void removeObserver(shared_ptr<IObserver> observer) = 0;
@@ -250,7 +252,8 @@ class MessagingEngine: public ISubject {
         vector<shared_ptr<IObserver>> observers;
     
     public:
-        void registerObservers(shared_ptr<IObserver> observer){
+        MessagingEngine() = default;
+        void registerObserver(shared_ptr<IObserver> observer) override {
             observers.push_back(observer);
         }
 
@@ -275,3 +278,40 @@ class MessagingEngine: public ISubject {
 
 
 
+int main() {
+    // 1. Initialize Registries
+    UserRegistry userRegistry;
+    GroupRegistry groupRegistry;
+
+    // 2. Add Users with different channel preferences
+    User userA("usr_1", "Alice", "alice@test.com", "+111111111", {NotificationChannelType::IN_APP});
+    User userB("usr_2", "Bob", "bob@test.com", "+222222222", {NotificationChannelType::EMAIL, NotificationChannelType::SMS});
+    User userC("usr_3", "Charlie", "charlie@test.com", "+333333333", {NotificationChannelType::IN_APP});
+
+    userRegistry.addUser(userA);
+    userRegistry.addUser(userB);
+    userRegistry.addUser(userC);
+
+    // 3. Add Group
+    Group devGroup("grp_100", "Dev Team", {"usr_1", "usr_2", "usr_3"});
+    groupRegistry.addGroup(devGroup);
+
+    // 4. Initialize Core Messaging Engine & Observer
+    MessagingEngine messagingEngine;
+    auto notificationEngine = std::make_shared<NotificationEngine>(userRegistry, groupRegistry);
+
+    // Register Notification Engine as an Observer to Messaging Engine
+    messagingEngine.registerObserver(notificationEngine);
+
+    // --- TEST SCENARIO 1: Direct Message (Alice -> Bob) ---
+    std::cout << "=================== SCENARIO 1 ===================";
+    Message directMsg("m_1", "usr_1", "usr_2", "Hey Bob, please review the PR.", MessageType::DIRECT);
+    messagingEngine.sendMessage(directMsg);
+
+    // --- TEST SCENARIO 2: Group Message (Alice -> Dev Team) ---
+    std::cout << "\n=================== SCENARIO 2 ===================";
+    Message groupMsg("m_2", "usr_1", "grp_100", "Team sync in 10 minutes!", MessageType::GROUP);
+    messagingEngine.sendMessage(groupMsg);
+
+    return 0;
+}
