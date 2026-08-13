@@ -3,6 +3,8 @@
 #include <vector>
 #include <memory>
 #include <chrono>
+#include<unordered_map>
+#include<algorithm>
 using namespace std;
 //enums
 enum class NotificationChannelType {
@@ -140,3 +142,45 @@ public:
     }
 };
 
+
+
+
+//user & group registeries
+class UserRegistry {
+private:
+    unordered_map<string, User> users;
+    
+public:
+    void addUser(const User& user){
+        users.insert({user.getId(), user});
+    }
+
+    bool getUser(const string& userId, User& outUser) const {
+        auto it = users.find(userId);
+        if(it!=users.end()){
+            outUser = it->second;
+            return true;
+        }
+        return false;
+    }
+};
+
+
+class GroupRegistry {
+private:
+    std::unordered_map<std::string, Group> groups;
+
+public:
+    void addGroup(const Group& group) {
+        groups.insert({group.getGroupId(), group});
+    }
+
+    bool getGroup(const std::string& groupId, Group& outGroup) const {
+        auto it = groups.find(groupId);
+        if (it != groups.end()) {
+            outGroup = it->second;
+            return true;
+        }
+        return false;
+    }
+};
