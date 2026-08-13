@@ -184,3 +184,52 @@ public:
         return false;
     }
 };
+
+
+
+// ---Observer Interface --
+class IObserver {
+public:
+    virtual ~IObserver() = default;
+    virtual void onMessageSent(const Message& message) = 0;
+};
+
+//concrete observer (the notification engine)
+class NotificationEngine: public IObserver {
+private:
+    UserRegistry& userRegistry;
+    GroupRegistry& groupRegistry;
+    void dispatchToUser(const User &recipient, const Message &message) {
+        for(const NotificationChannelType& channel: recipient.getPreferredChannels()){
+            auto strategy = NotificationStrategyFactory::getStrategy(channel);
+            if(strategy) {
+                strategy->sendNotification(recipient, message);
+            }
+        }
+    }
+    //
+public:
+    NotificationEngine(UserRegistry& uReg, GroupRegistry& gReg)
+        : userRegistry(uReg), groupRegistry(gReg) {}
+    
+        void onMessageSent(const Message& message) override {
+            if(message.getType() == MessageType::DIRECT){
+                User recipient("", "", "", "", {});
+                if(userRegistry.getUser(message.getRecipientId(), recipient)) {
+                    dispatchToUser(recipient, message);
+                }
+            } else if (message.getType() == MessageType::GROUP) {
+                Group group("", "", {});
+                if(groupRegistry.getGroup(message.getRecipientId(), group)) {
+                    for(const auto& memberId: group.getMemberUserIds()) {
+                        if(memberId == message.getSenderId()) continue;
+
+                        User recipient("", "", "", "", {});
+                        if(userRegistry.getUser(memberId, recipient)) {
+                            dispatchToUser(recipient, message);
+                        }
+                    }
+                }
+            }
+        }
+};
